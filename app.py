@@ -29,7 +29,8 @@ def verificar_login():
 
 # ====================== CONEXÃO COM O BANCO ======================
 def conectar():
-    conn = sqlite3.connect('sistema_vendas.db')
+    # timeout maior + check_same_thread=False para maior estabilidade
+    conn = sqlite3.connect('sistema_vendas.db', timeout=20)
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
@@ -145,7 +146,7 @@ def cadastrar_produto():
                 continue
             break
         except ValueError:
-            print("❌ Preço inválido! Use números (ex: 25.90 ou 25,90)")
+            print("❌ Preço inválido!")
 
     while True:
         estoque_str = input("Quantidade em estoque inicial: ").strip()
@@ -156,7 +157,7 @@ def cadastrar_produto():
                 continue
             break
         except ValueError:
-            print("❌ Quantidade inválida! Digite apenas números inteiros.")
+            print("❌ Quantidade inválida!")
 
     conn = conectar()
     cursor = conn.cursor()
@@ -191,80 +192,119 @@ def listar_produtos():
         print(f"{p[0]:<5} {p[1] or '---':<12} {p[2]:<35} R${p[3]:<8.2f} {p[4]:<8}")
 
 
-# ====================== REALIZAR COMPRA (Estoque diminui) ======================
+# ====================== REALIZAR COMPRA (Versão mais estável) ======================
 def realizar_compra():
     print("\n--- Realizar Compra ---")
     
-    # Escolher cliente
-    listar_clientes()
-    try:
-        cliente_input = input("\nDigite o ID do cliente (0 = Compra sem cliente): ").strip()
-        cliente_id = int(cliente_input) if cliente_input != "0" else None
-    except:
-        cliente_id = None
-        print(" Prosseguindo como compra avulsa.")
-
     conn = conectar()
     cursor = conn.cursor()
 
-    data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("INSERT INTO vendas (cliente_id, data_venda, total) VALUES (?, ?, 0)", 
-                   (cliente_id, data_atual))
-    venda_id = cursor.lastrowid
-    total_venda = 0.0
+    try:
+        data_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("INSERT INTO vendas (cliente_id, data_venda, total) VALUES (?, ?, 0)", 
+                       (None, data_atual))
+        venda_id = cursor.lastrowid
+        total_venda = 0.0
 
-    print("\n--- Adicionar Produtos (digite 0 para finalizar) ---")
-    while True:
-        listar_produtos()
-        try:
-            prod_input = input("\nID do produto (0 = Finalizar compra): ").strip()
-            if prod_input == "0":
+        print("\n" + "="*70)
+        print("          ADICIONANDO PRODUTOS À COMPRA")
+        print("="*70)
+
+        while True:
+            # Lista os produtos
+            cursor.execute("SELECT id, codigo, nome, preco, estoque FROM produtos ORDER BY nome")
+            produtos = cursor.fetchall()
+
+            if not produtos:
+                print("Nenhum produto cadastrado ainda.")
                 break
-            prod_id = int(prod_input)
-        except:
-            print("❌ ID inválido!")
-            continue
 
-        cursor.execute("SELECT nome, preco, estoque FROM produtos WHERE id = ?", (prod_id,))
-        produto = cursor.fetchone()
-        if not produto:
-            print("❌ Produto não encontrado!")
-            continue
+            print("\n--- Lista de Produtos ---")
+            print(f"{'ID':<5} {'Código':<12} {'Nome':<35} {'Preço':<10} {'Estoque':<8}")
+            print("-" * 80)
+            for p in produtos:
+                print(f"{p[0]:<5} {p[1] or '---':<12} {p[2]:<35} R${p[3]:<8.2f} {p[4]:<8}")
 
-        nome_prod, preco, estoque = produto
+            print("\n--- Digite o NOME do produto (ou parte dele) - 0 para finalizar ---")
+            busca = input("Nome do produto: ").strip()
 
-        if estoque <= 0:
-            print(f"❌ {nome_prod} está sem estoque!")
-            continue
+            if busca == "0":
+                break
 
-        try:
-            qtd = int(input(f"Quantidade (estoque disponível: {estoque}): "))
-            if qtd <= 0 or qtd > estoque:
-                print("❌ Quantidade inválida ou maior que o estoque!")
+            cursor.execute("""
+                SELECT id, nome, preco, estoque 
+                FROM produtos 
+                WHERE nome LIKE ? 
+                ORDER BY nome
+            """, (f"%{busca}%",))
+            
+            encontrados = cursor.fetchall()
+
+            if not encontrados:
+                print("❌ Nenhum produto encontrado!")
                 continue
-        except:
-            print("❌ Quantidade inválida!")
-            continue
 
-        subtotal = preco * qtd
-        total_venda += subtotal
+            if len(encontrados) == 1:
+                prod_id, nome_prod, preco, estoque = encontrados[0]
+            else:
+                print("\nProdutos encontrados:")
+                for idx, (_, nome, preco, est) in enumerate(encontrados, 1):
+                    print(f"{idx}. {nome} (Estoque: {est}) - R${preco:.2f}")
+                
+                try:
+                    escolha = int(input("\nEscolha o número: "))
+                    if 1 <= escolha <= len(encontrados):
+                        prod_id, nome_prod, preco, estoque = encontrados[escolha-1]
+                    else:
+                        print("❌ Escolha inválida!")
+                        continue
+                except:
+                    print("❌ Escolha inválida!")
+                    continue
 
-        cursor.execute('''
-            INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_unitario, subtotal)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (venda_id, prod_id, qtd, preco, subtotal))
+            if estoque <= 0:
+                print(f"❌ {nome_prod} sem estoque!")
+                continue
 
-        # DIMINUI O ESTOQUE
-        cursor.execute("UPDATE produtos SET estoque = estoque - ? WHERE id = ?", (qtd, prod_id))
+            try:
+                qtd = int(input(f"Quantidade (máximo {estoque}): "))
+                if qtd <= 0 or qtd > estoque:
+                    print("❌ Quantidade inválida!")
+                    continue
+            except:
+                print("❌ Quantidade inválida!")
+                continue
 
-        print(f"✅ {qtd}x {nome_prod} adicionado (Subtotal: R${subtotal:.2f})")
+            subtotal = preco * qtd
+            total_venda += subtotal
 
-    cursor.execute("UPDATE vendas SET total = ? WHERE id = ?", (total_venda, venda_id))
-    conn.commit()
-    conn.close()
+            # Insere item
+            cursor.execute('''
+                INSERT INTO itens_venda (venda_id, produto_id, quantidade, preco_unitario, subtotal)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (venda_id, prod_id, qtd, preco, subtotal))
 
-    print(f"\n🎉 Compra finalizada com sucesso!")
-    print(f"   Total: R${total_venda:.2f}")
+            # **Diminui o estoque**
+            cursor.execute("UPDATE produtos SET estoque = estoque - ? WHERE id = ?", (qtd, prod_id))
+
+            print(f"✅ {qtd}x {nome_prod} adicionado (Subtotal: R${subtotal:.2f})")
+
+        # Finaliza a venda
+        cursor.execute("UPDATE vendas SET total = ? WHERE id = ?", (total_venda, venda_id))
+        conn.commit()
+
+        print(f"\n🎉 Compra finalizada com sucesso!")
+        print(f"   Total: R${total_venda:.2f}")
+
+    except sqlite3.OperationalError as e:
+        print(f"❌ Erro de banco (locked): {e}")
+        print("   Tente novamente. Se persistir, feche o programa completamente e rode de novo.")
+        conn.rollback()
+    except Exception as e:
+        print(f"❌ Erro inesperado: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
 
 
 # ====================== MENU PRINCIPAL ======================
@@ -279,7 +319,7 @@ def menu_principal():
         print("2. Listar Clientes")
         print("3. Cadastrar Produto")
         print("4. Listar Produtos")
-        print("5. Realizar Compra")      # ← Estoque diminui aqui
+        print("5. Realizar Compra")
         print("0. Sair")
         print("="*60)
 
@@ -299,10 +339,10 @@ def menu_principal():
             print("👋 Sistema encerrado. Até logo!")
             break
         else:
-            print("❌ Opção inválida! Tente novamente.")
+            print("❌ Opção inválida!")
 
 
-# ====================== INÍCIO DO PROGRAMA ======================
+# ====================== INÍCIO ======================
 if __name__ == "__main__":
     if verificar_login():
         menu_principal()
