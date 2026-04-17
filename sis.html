@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema Comercial - Vendas</title>
+  
+  <!-- Tailwind CSS Standalone (sem aviso de produção) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      content: [],
+      theme: {
+        extend: {}
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .section {
+      display: none;
+    }
+    .section.active {
+      display: block;
+    }
+    .nav-link {
+      transition: all 0.2s;
+    }
+    .nav-link:hover {
+      background-color: #1f2937;
+    }
+    .nav-link.active {
+      background-color: #10b981;
+      color: white;
+    }
+    .card {
+      transition: all 0.3s ease;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+<div class="flex h-screen">
+
+  <!-- Sidebar -->
+  <div class="w-72 bg-gray-900 text-white p-6 flex flex-col">
+    <div class="flex items-center gap-3 mb-12">
+      <i class="fa-solid fa-store text-4xl text-emerald-400"></i>
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">Comercial</h1>
+        <p class="text-xs text-gray-400">Sistema de Vendas</p>
+      </div>
+    </div>
+
+    <nav class="flex-1 space-y-1">
+      <a onclick="showSection('vendas')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer active">
+        <i class="fa-solid fa-cash-register w-5"></i>
+        <span class="font-medium">Nova Venda</span>
+      </a>
+      <a onclick="showSection('clientes')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer">
+        <i class="fa-solid fa-users w-5"></i>
+        <span class="font-medium">Clientes</span>
+      </a>
+      <a onclick="showSection('produtos')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer">
+        <i class="fa-solid fa-box w-5"></i>
+        <span class="font-medium">Produtos / Estoque</span>
+      </a>
+      <a onclick="showSection('historico')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer">
+        <i class="fa-solid fa-clock-rotate-left w-5"></i>
+        <span class="font-medium">Histórico de Vendas</span>
+      </a>
+    </nav>
+
+    <div class="pt-8 border-t border-gray-700">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold">A</div>
+        <div>
+          <p class="text-sm font-medium">Admin</p>
+          <p id="usuario-logado" class="text-xs text-gray-400">admin</p>
+        </div>
+      </div>
+      <button onclick="logout()" 
+              class="mt-6 w-full py-3 text-red-400 hover:bg-gray-800 rounded-2xl flex items-center justify-center gap-2 text-sm font-medium">
+        <i class="fa-solid fa-right-from-bracket"></i> Sair do Sistema
+      </button>
+    </div>
+  </div>
+
+  <!-- Conteúdo Principal -->
+  <div class="flex-1 p-8 overflow-auto">
+
+    <!-- NOVA VENDA -->
+    <div id="vendas" class="section active">
+      <h2 class="text-3xl font-bold text-gray-800 mb-8">Nova Venda</h2>
+      <div class="bg-white rounded-3xl shadow-xl p-8 card">
+        <div class="mb-8">
+          <label class="block text-sm font-semibold text-gray-600 mb-2">Cliente</label>
+          <select id="cliente-select" class="w-full p-4 border border-gray-300 rounded-2xl focus:outline-none focus:border-emerald-500 text-base"></select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-10">
+          <!-- Produtos Disponíveis -->
+          <div>
+            <h3 class="font-semibold text-lg mb-4 flex items-center gap-2">
+              <i class="fa-solid fa-box text-emerald-600"></i> Produtos
+            </h3>
+            <input id="busca-produto" 
+                   onkeyup="filtrarProdutos()" 
+                   type="text" 
+                   placeholder="Buscar produto..." 
+                   class="w-full p-4 border border-gray-300 rounded-2xl mb-4 focus:outline-none focus:border-emerald-500">
+            <div id="lista-produtos" class="max-h-[460px] overflow-y-auto space-y-3 pr-2"></div>
+          </div>
+
+          <!-- Carrinho -->
+          <div>
+            <h3 class="font-semibold text-lg mb-4">Carrinho</h3>
+            <div id="carrinho" class="min-h-[400px] bg-gray-50 rounded-2xl p-6 space-y-4 overflow-y-auto"></div>
+            
+            <div class="mt-8 bg-emerald-50 border border-emerald-200 rounded-3xl p-6">
+              <div class="flex justify-between items-center text-2xl font-bold text-gray-800">
+                <span>Total:</span>
+                <span id="total-venda" class="text-emerald-600">R$ 0,00</span>
+              </div>
+              <button onclick="finalizarVenda()" 
+                      class="mt-6 w-full bg-emerald-600 hover:bg-emerald-700 transition-colors text-white py-5 rounded-2xl text-lg font-semibold shadow-md">
+                Finalizar Venda 💰
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div id="clientes" class="section">
+      <div class="flex justify-between items-center mb-8">
+        <h2 class="text-3xl font-bold text-gray-800">Clientes</h2>
+        <button onclick="abrirModalCliente()" 
+                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-medium">
+          <i class="fa-solid fa-plus"></i> Novo Cliente
+        </button>
+      </div>
+      <div id="tabela-clientes" class="bg-white rounded-3xl shadow-xl overflow-hidden"></div>
+    </div>
+
+    <!-- PRODUTOS -->
+    <div id="produtos" class="section">
+      <div class="flex justify-between items-center mb-8">
+        <h2 class="text-3xl font-bold text-gray-800">Produtos e Estoque</h2>
+        <button onclick="abrirModalProduto()" 
+                class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-medium">
+          <i class="fa-solid fa-plus"></i> Novo Produto
+        </button>
+      </div>
+      <div id="tabela-produtos" class="bg-white rounded-3xl shadow-xl overflow-hidden"></div>
+    </div>
+
+    <!-- HISTÓRICO -->
+    <div id="historico" class="section">
+      <h2 class="text-3xl font-bold text-gray-800 mb-8">Histórico de Vendas</h2>
+      <div id="tabela-historico" class="bg-white rounded-3xl shadow-xl overflow-hidden"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modais -->
+<div id="modal-cliente" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+    <h3 class="text-2xl font-bold mb-6">Novo Cliente</h3>
+    <input id="nome-cliente" type="text" placeholder="Nome completo" class="w-full p-4 border border-gray-300 rounded-2xl mb-4 focus:outline-none">
+    <input id="telefone-cliente" type="text" placeholder="Telefone (opcional)" class="w-full p-4 border border-gray-300 rounded-2xl mb-6 focus:outline-none">
+    <div class="flex gap-4">
+      <button onclick="fecharModal('modal-cliente')" class="flex-1 py-4 border border-gray-300 rounded-2xl font-medium">Cancelar</button>
+      <button onclick="salvarCliente()" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-medium">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-produto" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
+    <h3 class="text-2xl font-bold mb-6">Novo Produto</h3>
+    <input id="nome-produto" type="text" placeholder="Nome do produto" class="w-full p-4 border border-gray-300 rounded-2xl mb-4 focus:outline-none">
+    <input id="preco-produto" type="number" step="0.01" placeholder="Preço de venda" class="w-full p-4 border border-gray-300 rounded-2xl mb-4 focus:outline-none">
+    <input id="estoque-produto" type="number" placeholder="Quantidade inicial em estoque" class="w-full p-4 border border-gray-300 rounded-2xl mb-6 focus:outline-none">
+    <div class="flex gap-4">
+      <button onclick="fecharModal('modal-produto')" class="flex-1 py-4 border border-gray-300 rounded-2xl font-medium">Cancelar</button>
+      <button onclick="salvarProduto()" class="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-medium">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====================== DADOS ======================
+let produtos = [];
+let clientes = [];
+let vendas = [];
+let carrinho = [];
+
+// Carregar / Salvar dados
+function carregarDados() {
+  produtos = JSON.parse(localStorage.getItem('produtos') || '[]');
+  clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
+  vendas = JSON.parse(localStorage.getItem('vendas') || '[]');
+
+  if (produtos.length === 0) {
+    produtos = [
+      {id: 1, nome: "Camiseta Básica", preco: 49.90, estoque: 25},
+      {id: 2, nome: "Calça Jeans", preco: 89.90, estoque: 15},
+      {id: 3, nome: "Tênis Esportivo", preco: 129.90, estoque: 8}
+    ];
+  }
+  if (clientes.length === 0) {
+    clientes = [{id: 1, nome: "João Silva", telefone: "(41) 99999-8888"}];
+  }
+  salvarDados();
+}
+
+function salvarDados() {
+  localStorage.setItem('produtos', JSON.stringify(produtos));
+  localStorage.setItem('clientes', JSON.stringify(clientes));
+  localStorage.setItem('vendas', JSON.stringify(vendas));
+}
+
+// ====================== NAVEGAÇÃO ======================
+function showSection(secao) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(secao).classList.add('active');
+
+  if (secao === 'produtos') renderTabelaProdutos();
+  if (secao === 'clientes') renderTabelaClientes();
+  if (secao === 'historico') renderHistorico();
+  if (secao === 'vendas') {
+    carregarClientesSelect();
+    renderListaProdutos();
+  }
+}
+
+// ====================== PRODUTOS ======================
+function renderListaProdutos(filtro = '') {
+  let html = '';
+  const filtrados = produtos.filter(p => 
+    p.nome.toLowerCase().includes(filtro.toLowerCase()) && p.estoque > 0
+  );
+
+  filtrados.forEach(p => {
+    html += `
+      <div onclick="adicionarAoCarrinho(${p.id})" 
+           class="p-5 bg-white border border-gray-200 rounded-2xl hover:border-emerald-500 cursor-pointer transition-all card">
+        <div class="font-medium text-gray-800">${p.nome}</div>
+        <div class="text-sm text-gray-500 mt-1">R$ ${p.preco.toFixed(2)} • Estoque: ${p.estoque}</div>
+      </div>`;
+  });
+
+  document.getElementById('lista-produtos').innerHTML = html || 
+    '<p class="text-center py-12 text-gray-400">Nenhum produto em estoque</p>';
+}
+
+function renderTabelaProdutos() {
+  let html = `<table class="w-full"><thead class="bg-gray-50"><tr>
+    <th class="p-5 text-left font-medium">ID</th>
+    <th class="p-5 text-left font-medium">Produto</th>
+    <th class="p-5 text-right font-medium">Preço</th>
+    <th class="p-5 text-center font-medium">Estoque</th>
+  </tr></thead><tbody>`;
+
+  produtos.forEach(p => {
+    html += `<tr class="border-t hover:bg-gray-50">
+      <td class="p-5">${p.id}</td>
+      <td class="p-5">${p.nome}</td>
+      <td class="p-5 text-right">R$ ${p.preco.toFixed(2)}</td>
+      <td class="p-5 text-center ${p.estoque < 5 ? 'text-red-600 font-bold' : 'text-gray-700'}">${p.estoque}</td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  document.getElementById('tabela-produtos').innerHTML = html;
+}
+
+// ====================== CLIENTES ======================
+function renderTabelaClientes() {
+  let html = `<table class="w-full"><thead class="bg-gray-50"><tr>
+    <th class="p-5 text-left font-medium">ID</th>
+    <th class="p-5 text-left font-medium">Nome</th>
+    <th class="p-5 text-left font-medium">Telefone</th>
+  </tr></thead><tbody>`;
+
+  clientes.forEach(c => {
+    html += `<tr class="border-t hover:bg-gray-50">
+      <td class="p-5">${c.id}</td>
+      <td class="p-5">${c.nome}</td>
+      <td class="p-5">${c.telefone || '-'}</td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  document.getElementById('tabela-clientes').innerHTML = html;
+}
+
+function carregarClientesSelect() {
+  const select = document.getElementById('cliente-select');
+  select.innerHTML = '<option value="">Selecione um cliente...</option>';
+  clientes.forEach(c => {
+    select.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
+  });
+}
+
+// ====================== CARRINHO ======================
+function adicionarAoCarrinho(id) {
+  const produto = produtos.find(p => p.id === id);
+  if (!produto || produto.estoque <= 0) return;
+
+  let item = carrinho.find(i => i.id === id);
+  if (item) {
+    if (item.qtd < produto.estoque) item.qtd++;
+  } else {
+    carrinho.push({...produto, qtd: 1});
+  }
+  renderCarrinho();
+}
+
+function renderCarrinho() {
+  let html = '';
+  let total = 0;
+
+  carrinho.forEach((item, index) => {
+    const subtotal = item.preco * item.qtd;
+    total += subtotal;
+    html += `
+      <div class="flex justify-between items-center bg-white p-5 rounded-2xl border">
+        <div>
+          <div class="font-medium">${item.nome}</div>
+          <div class="text-sm text-gray-500">R$ ${item.preco.toFixed(2)} × ${item.qtd}</div>
+        </div>
+        <div class="text-right">
+          <div class="font-semibold text-emerald-600">R$ ${subtotal.toFixed(2)}</div>
+          <button onclick="removerDoCarrinho(${index})" class="text-red-500 text-sm mt-1 hover:underline">Remover</button>
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('carrinho').innerHTML = html || 
+    '<p class="text-center py-16 text-gray-400">Seu carrinho está vazio</p>';
+  document.getElementById('total-venda').textContent = `R$ ${total.toFixed(2)}`;
+}
+
+function removerDoCarrinho(index) {
+  carrinho.splice(index, 1);
+  renderCarrinho();
+}
+
+// ====================== FINALIZAR VENDA ======================
+function finalizarVenda() {
+  const clienteId = parseInt(document.getElementById('cliente-select').value);
+  if (!clienteId || carrinho.length === 0) {
+    alert("❌ Selecione um cliente e adicione produtos ao carrinho!");
+    return;
+  }
+
+  let total = 0;
+
+  carrinho.forEach(item => {
+    total += item.preco * item.qtd;
+    const prod = produtos.find(p => p.id === item.id);
+    if (prod) prod.estoque -= item.qtd;
+  });
+
+  const cliente = clientes.find(c => c.id === clienteId);
+
+  const novaVenda = {
+    id: Date.now(),
+    cliente: cliente.nome,
+    total: total,
+    data: new Date().toLocaleString('pt-BR'),
+    itens: carrinho.map(i => ({nome: i.nome, qtd: i.qtd, preco: i.preco}))
+  };
+
+  vendas.unshift(novaVenda);
+  salvarDados();
+
+  alert(`✅ Venda realizada com sucesso!\n\nCliente: ${cliente.nome}\nTotal: R$ ${total.toFixed(2)}`);
+
+  carrinho = [];
+  renderCarrinho();
+  renderListaProdutos();
+  renderTabelaProdutos();
+}
+
+// ====================== MODAIS ======================
+function abrirModalCliente() {
+  document.getElementById('modal-cliente').classList.remove('hidden');
+}
+
+function abrirModalProduto() {
+  document.getElementById('modal-produto').classList.remove('hidden');
+}
+
+function fecharModal(modalId) {
+  document.getElementById(modalId).classList.add('hidden');
+}
+
+function salvarCliente() {
+  const nome = document.getElementById('nome-cliente').value.trim();
+  const telefone = document.getElementById('telefone-cliente').value.trim();
+  if (!nome) return alert("Nome é obrigatório!");
+
+  clientes.push({
+    id: Date.now(),
+    nome: nome,
+    telefone: telefone
+  });
+
+  salvarDados();
+  fecharModal('modal-cliente');
+  renderTabelaClientes();
+  carregarClientesSelect();
+  alert("Cliente cadastrado com sucesso!");
+}
+
+function salvarProduto() {
+  const nome = document.getElementById('nome-produto').value.trim();
+  const preco = parseFloat(document.getElementById('preco-produto').value);
+  const estoque = parseInt(document.getElementById('estoque-produto').value);
+
+  if (!nome || isNaN(preco) || isNaN(estoque)) {
+    return alert("Preencha todos os campos corretamente!");
+  }
+
+  produtos.push({
+    id: Date.now(),
+    nome: nome,
+    preco: preco,
+    estoque: estoque
+  });
+
+  salvarDados();
+  fecharModal('modal-produto');
+  renderTabelaProdutos();
+  renderListaProdutos();
+  alert("Produto cadastrado com sucesso!");
+}
+
+// ====================== OUTRAS ======================
+function filtrarProdutos() {
+  const termo = document.getElementById('busca-produto').value;
+  renderListaProdutos(termo);
+}
+
+function renderHistorico() {
+  let html = `<table class="w-full"><thead class="bg-gray-50"><tr>
+    <th class="p-5 text-left font-medium">Data</th>
+    <th class="p-5 text-left font-medium">Cliente</th>
+    <th class="p-5 text-right font-medium">Total</th>
+  </tr></thead><tbody>`;
+
+  vendas.forEach(v => {
+    html += `<tr class="border-t hover:bg-gray-50">
+      <td class="p-5">${v.data}</td>
+      <td class="p-5">${v.cliente}</td>
+      <td class="p-5 text-right font-bold text-emerald-600">R$ ${v.total.toFixed(2)}</td>
+    </tr>`;
+  });
+
+  document.getElementById('tabela-historico').innerHTML = html || 
+    '<p class="p-12 text-center text-gray-400">Nenhuma venda registrada ainda.</p>';
+}
+
+function logout() {
+  if (confirm("Deseja realmente sair do sistema?")) {
+    window.location.reload();
+  }
+}
+
+// ====================== INICIAR ======================
+window.onload = () => {
+  carregarDados();
+  showSection('vendas');
+};
+</script>
+</body>
+</html>
